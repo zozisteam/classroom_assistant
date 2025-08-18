@@ -1,0 +1,26 @@
+[project]
+name = "classroom-engagement"
+version = "0.1.0"
+description = "Real-time classroom engagement detection system"
+authors = [{ name = "Your Name" }]
+requires-python = ">=3.9"
+
+dependencies = [
+    "torch>=2.1",
+    "torchvision",
+    "transformers",
+    "opencv-python",
+    "numpy",
+    "pillow",
+    "pydantic",
+    "mediapipe",
+    "ultralytics",
+    "scipy",
+]
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"

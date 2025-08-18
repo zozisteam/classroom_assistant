@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: classroom-engagement
+Version: 0.1.0
+Summary: Real-time classroom engagement detection system
+Author: Your Name
+Requires-Python: >=3.9
+Requires-Dist: torch>=2.1
+Requires-Dist: torchvision
+Requires-Dist: transformers
+Requires-Dist: opencv-python
+Requires-Dist: numpy
+Requires-Dist: pillow
+Requires-Dist: pydantic
+Requires-Dist: mediapipe
+Requires-Dist: ultralytics

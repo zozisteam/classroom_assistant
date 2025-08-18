@@ -1,0 +1,15 @@
+# Ignore virtual environment
+classroom_engagement/classroom-env3-10/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Large models
+*.pt
+*.pth
+gazelle/
+gazelle_weights/
+
+# OS files
+.DS_Store

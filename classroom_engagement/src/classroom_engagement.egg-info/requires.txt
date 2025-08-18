@@ -1,0 +1,9 @@
+torch>=2.1
+torchvision
+transformers
+opencv-python
+numpy
+pillow
+pydantic
+mediapipe
+ultralytics
