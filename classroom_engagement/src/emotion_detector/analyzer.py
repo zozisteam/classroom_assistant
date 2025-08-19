@@ -48,6 +48,29 @@ class EmotionAnalyzer:
                 self.session_data["focus_stats"][focus] += 1
                 
         return results
+
+    def analyze_with_faces(self, frame, face_bboxes):
+        """Run emotion on externally supplied face boxes."""
+        results = []
+        for i, (x, y, w, h) in enumerate(face_bboxes):
+            face_img = frame[y:y+h, x:x+w]
+            if face_img.size == 0:
+                continue
+            preds = self.model.predict(face_img)
+            if preds:
+                top = preds[0]
+                focus = self.map_emotion(top['label'], top['score'])
+                results.append({
+                    "id": f"face_{i+1}",
+                    "bbox": (x, y, w, h),
+                    "emotion": top['label'],
+                    "confidence": top['score'],
+                    "focus_state": focus,
+                    "timestamp": time.time()
+                })
+                self.session_data["total_detections"] += 1
+                self.session_data["focus_stats"][focus] += 1
+        return results
     
     def get_class_summary(self) -> dict:
         total = self.session_data["total_detections"]

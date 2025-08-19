@@ -7,10 +7,10 @@ from emotion_detector.analyzer import EmotionAnalyzer
 from emotion_detector.visualizer import draw_detections, draw_engagement_label, pixelate_faces
 from posture_estimator.blazepose import BlazePoseEstimator
 from posture_estimator.detector import PersonDetector
-from posture_estimator.blazepose import BlazePoseEstimator
 from fusion.engagement import FusionEngine, iou_xywh
 from tracking.iou_tracker import IoUTracker
 from gaze_estimator.facemesh import FaceMeshGaze
+from face_detector.retinaface_insight import RetinaFaceDetector
 #from gaze_estimator.gazelle import GazeLLE
 
 
@@ -28,6 +28,7 @@ def main():
     fusion = FusionEngine(window_seconds=15.0)
     tracker = IoUTracker(iou_thresh=0.45, max_misses=15, ema=0.25)
     gaze_estimator = FaceMeshGaze()
+    face_detector = RetinaFaceDetector(det_size=640)
 
 
 
@@ -38,13 +39,28 @@ def main():
         if not ret:
             break
 
-        results = analyzer.analyze(frame)
+        # Detect → Track people
+        det_bboxes = person_detector.detect_persons(frame)
+        tracks = tracker.update(det_bboxes)
+
+        # For each tracked person, try to detect a face INSIDE their bbox (more accurate)
+        face_bboxes = []
+        for tr in tracks:
+            x, y, w, h = tr["bbox"]
+            faces_in_roi = face_detector.detect(frame, roi=(x, y, w, h))
+            # Pick the largest face in this ROI (if multiple)
+            if faces_in_roi:
+                fx, fy, fw, fh = max(faces_in_roi, key=lambda b: b[2] * b[3])
+                face_bboxes.append((fx, fy, fw, fh))
+
+        # Run emotion on the collected face bboxes (fallback to Haar if none found)
+        if face_bboxes:
+            results = analyzer.analyze_with_faces(frame, face_bboxes)
+        else:
+            results = analyzer.analyze(frame)  # fallback
+
         summary = analyzer.get_class_summary()
         annotated = draw_detections(frame, results, summary)
-
-        # Detect → Track → Pose
-        det_bboxes = person_detector.detect_persons(annotated)
-        tracks = tracker.update(det_bboxes)  # [{'id': int, 'bbox': (x,y,w,h), ...}, ...]
 
         posture_records = []
         for tr in tracks:
@@ -63,6 +79,7 @@ def main():
 
         # Associate each face (emotion) with nearest tracked person bbox via IoU, then fuse
         engagement_to_draw = []  # collect labels to draw after pixelation
+        tracks_with_face = set()
         for face_res in results:
             face_bbox = face_res["bbox"]  # (x,y,w,h)
             # find best match
@@ -75,6 +92,7 @@ def main():
                     best = pr
 
             if best and best.get("posture") and best_iou >= 0.1:
+                tracks_with_face.add(best["id"])
                 engagement = fusion.fuse(
                     student_id=best["id"],
                     focus_state=face_res["focus_state"],
@@ -82,21 +100,22 @@ def main():
                     posture=best["posture"],
                 )
                 engagement_to_draw.append((face_bbox, engagement))
-            # --- Eye gaze estimation: Gazelle primary → FaceMesh fallback ---
-           # yaw, pitch = gaze_gazelle.estimate(annotated, face_bbox)
-            #if yaw is None or pitch is None:
-             #   yaw, pitch, gaze_label = gaze_facemesh.estimate(annotated, face_bbox)
-            #else:
-                # Translate yaw/pitch into a coarse label like FaceMesh for UI consistency
-             #   if yaw > 20: gaze_label = "right"
-              #  elif yaw < -20: gaze_label = "left"
-               # elif pitch > 15: gaze_label = "down"
-                #elif pitch < -15: gaze_label = "up"
-                #else: gaze_label = "forward"
-            #annotated = gaze_facemesh.draw(annotated, face_bbox, yaw, pitch, gaze_label)
-            # --- Eye gaze estimation: FaceMesh only ---
+            # --- Eye gaze estimation (FaceMesh) for each detected face ---
             yaw, pitch, gaze_label = gaze_estimator.estimate(annotated, face_bbox)
             annotated = gaze_estimator.draw(annotated, face_bbox, yaw, pitch, gaze_label)
+        # posture-only fallback when no face matched for a tracked person
+        for pr in posture_records:
+            if pr["id"] not in tracks_with_face:
+                # No face for this person this frame → fuse with uncertain/0.0
+                engagement = fusion.fuse(
+                    student_id=pr["id"],
+                    focus_state="uncertain",
+                    focus_conf=0.0,
+                    posture=pr.get("posture"),
+                )
+                # Draw engagement near the PERSON bbox so it's still visible
+                engagement_to_draw.append((pr["bbox"], engagement))
+       
         # === Censor faces in the DISPLAY ONLY ===
         annotated = pixelate_faces(annotated, results, pixel_size=16)
 

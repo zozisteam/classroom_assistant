@@ -1,4 +1,6 @@
 emotion_detector
+face_detector
 fusion
+gaze_estimator
 posture_estimator
 tracking

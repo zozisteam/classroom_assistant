@@ -10,8 +10,13 @@ src/emotion_detector/analyzer.py
 src/emotion_detector/config.py
 src/emotion_detector/model.py
 src/emotion_detector/visualizer.py
+src/face_detector/__init__.py
+src/face_detector/retinaface_insight.py
 src/fusion/__init__.py
 src/fusion/engagement.py
+src/gaze_estimator/__init__.py
+src/gaze_estimator/facemesh.py
+src/gaze_estimator/gazelle.py
 src/posture_estimator/__init__.py
 src/posture_estimator/blazepose.py
 src/posture_estimator/detector.py

@@ -6,16 +6,23 @@ authors = [{ name = "Your Name" }]
 requires-python = ">=3.9"
 
 dependencies = [
-    "torch>=2.1",
-    "torchvision",
-    "transformers",
-    "opencv-python",
-    "numpy",
-    "pillow",
-    "pydantic",
-    "mediapipe",
-    "ultralytics",
-    "scipy",
+  "torch>=2.1",
+  "torchvision",
+  "transformers",
+  "opencv-python",
+  "numpy<2.0",  # keep ORT-compatible NumPy to avoid ABI issues
+  "pillow",
+  "pydantic",
+  "mediapipe",
+  "ultralytics",
+  "scipy",
+  "timm",
+  # Face detector (RetinaFace via InsightFace)
+  "insightface==0.7.3",
+  # ONNX Runtime per platform (use explicit markers; avoid 'not (...)')
+  "onnxruntime-silicon==1.16.3; sys_platform == 'darwin' and platform_machine == 'arm64'",
+  "onnxruntime==1.16.3; sys_platform == 'darwin' and platform_machine != 'arm64'",
+  "onnxruntime==1.16.3; sys_platform != 'darwin'",
 ]
 
 [tool.black]

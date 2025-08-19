@@ -8,8 +8,14 @@ Requires-Dist: torch>=2.1
 Requires-Dist: torchvision
 Requires-Dist: transformers
 Requires-Dist: opencv-python
-Requires-Dist: numpy
+Requires-Dist: numpy<2.0
 Requires-Dist: pillow
 Requires-Dist: pydantic
 Requires-Dist: mediapipe
 Requires-Dist: ultralytics
+Requires-Dist: scipy
+Requires-Dist: timm
+Requires-Dist: insightface==0.7.3
+Requires-Dist: onnxruntime-silicon==1.16.3; sys_platform == "darwin" and platform_machine == "arm64"
+Requires-Dist: onnxruntime==1.16.3; sys_platform == "darwin" and platform_machine != "arm64"
+Requires-Dist: onnxruntime==1.16.3; sys_platform != "darwin"
