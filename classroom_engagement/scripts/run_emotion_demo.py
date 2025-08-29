@@ -9,9 +9,9 @@ from posture_estimator.blazepose import BlazePoseEstimator
 from posture_estimator.detector import PersonDetector
 from fusion.engagement import FusionEngine, iou_xywh
 from tracking.iou_tracker import IoUTracker
-from gaze_estimator.facemesh import FaceMeshGaze
+from gaze_estimator.gazelle import GazeLLE
 from face_detector.retinaface_insight import RetinaFaceDetector
-#from gaze_estimator.gazelle import GazeLLE
+
 
 
 
@@ -27,7 +27,7 @@ def main():
     pose_estimator = BlazePoseEstimator()
     fusion = FusionEngine(window_seconds=15.0)
     tracker = IoUTracker(iou_thresh=0.45, max_misses=15, ema=0.25)
-    gaze_estimator = FaceMeshGaze()
+    gaze_estimator = GazeLLE(model_name="gazelle_dinov2_vitb14_inout")
     face_detector = RetinaFaceDetector(det_size=640)
 
 
@@ -61,6 +61,18 @@ def main():
 
         summary = analyzer.get_class_summary()
         annotated = draw_detections(frame, results, summary)
+        # --- Gazelle gaze estimation (single scene encode, multi-face) ---
+        gaze_draw = []  # collect to draw after pixelation
+        face_boxes = [r["bbox"] for r in results]  # (x,y,w,h) in pixels
+        if face_boxes:
+            gazes = gaze_estimator.estimate_many(annotated, face_boxes)  # aligned with face_boxes
+            # Prepare arrows/labels per face
+            for (x, y, w, h), gz in zip(face_boxes, gazes):
+                cx, cy = int(x + w / 2), int(y + h / 2)
+                tx, ty = gz["target_xy"]
+                label = gz["label"]
+                inout = gz["inout"]
+                gaze_draw.append(((cx, cy), (tx, ty), label, inout))
 
         posture_records = []
         for tr in tracks:
@@ -100,9 +112,6 @@ def main():
                     posture=best["posture"],
                 )
                 engagement_to_draw.append((face_bbox, engagement))
-            # --- Eye gaze estimation (FaceMesh) for each detected face ---
-            yaw, pitch, gaze_label = gaze_estimator.estimate(annotated, face_bbox)
-            annotated = gaze_estimator.draw(annotated, face_bbox, yaw, pitch, gaze_label)
         # posture-only fallback when no face matched for a tracked person
         for pr in posture_records:
             if pr["id"] not in tracks_with_face:
@@ -118,6 +127,21 @@ def main():
        
         # === Censor faces in the DISPLAY ONLY ===
         annotated = pixelate_faces(annotated, results, pixel_size=16)
+
+        # Draw Gazelle gaze: arrow + label
+        for (cxy, txy, glabel, inout_prob) in gaze_draw:
+            cx, cy = cxy
+            tx, ty = txy
+            # arrow
+            cv2.arrowedLine(annotated, (cx, cy), (tx, ty), (0, 255, 255), 2, tipLength=0.3)
+            # label
+            text = f"Gaze: {glabel}"
+            if inout_prob is not None and inout_prob < 0.5:
+                text += " (out)"
+            tx_text = max(10, min(annotated.shape[1] - 160, cx + 8))
+            ty_text = max(20, cy - 8)
+            cv2.putText(annotated, text, (tx_text, ty_text), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+
 
         # Draw engagement labels AFTER pixelation so they remain readable
         for bbox, label in engagement_to_draw:
